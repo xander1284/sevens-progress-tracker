@@ -88,10 +88,12 @@
     }
     .field input[type="number"] { font-variant-numeric: tabular-nums; }
     .rule-green label { color: var(--green); }
+    .rule-olive label { color: var(--olive); }
     .rule-yellow label { color: #9A6A00; }
     .rule-brown label { color: var(--brown); }
     .rule-red label { color: var(--red); }
     .rule-green input { border-bottom: 3px solid var(--green); }
+    .rule-olive input { border-bottom: 3px solid var(--olive); }
     .rule-yellow input { border-bottom: 3px solid var(--yellow); }
     .rule-brown input { border-bottom: 3px solid var(--brown); }
     .rule-red input { border-bottom: 3px solid var(--red); }
@@ -170,10 +172,11 @@
       </div>
       <h3 class="section-heading" style="margin-top:18px">Color rules for new weeks</h3>
       <div class="settings-row" id="rulesForm">
-        <div class="field rule-green"><label for="greenRule">Green from</label><input id="greenRule" type="number" min="0" step="1" inputmode="numeric"></div>
-        <div class="field rule-yellow"><label for="yellowRule">Yellow from</label><input id="yellowRule" type="number" min="0" step="1" inputmode="numeric"></div>
-        <div class="field rule-brown"><label for="brownRule">Brown from</label><input id="brownRule" type="number" min="0" step="1" inputmode="numeric"></div>
-        <div class="field rule-red"><label for="redRule">Red below</label><input id="redRule" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field rule-green"><label for="greenRule">Green from</label><input id="greenRule" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 6520"></div>
+        <div class="field rule-olive"><label for="oliveRule">Olive from</label><input id="oliveRule" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 6000"></div>
+        <div class="field rule-yellow"><label for="yellowRule">Yellow from</label><input id="yellowRule" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 5000"></div>
+        <div class="field rule-brown"><label for="brownRule">Brown from</label><input id="brownRule" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 4000"></div>
+        <div class="field rule-red"><label for="redRule">Red below</label><input id="redRule" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 4000"></div>
         <button id="saveRules" class="button light" type="button">Save rules</button>
       </div>
       <p class="note">Thresholds are applied only when you add a week. Existing cell colors stay as saved.</p>
@@ -223,7 +226,7 @@
     const CONFIG = {
       storageKey: "sevens-tracker-v1",
       target: 27660,
-      rules: { green: 6520, yellow: 5000, brown: 4000, red: 4000 },
+      rules: { green: "", olive: "", yellow: "", brown: "", red: "" },
       colors: { green: "#06A44F", red: "#FA0001", yellow: "#F4B204", brown: "#D57123", olive: "#588132" },
       people: ["Ritah", "Laura", "Ashley", "Prince", "Alex", "Hope", "Vincent", "Komu"],
       dates: ["14-Sep", "21-Sep", "28-Sep", "5-Oct"],
@@ -270,11 +273,14 @@
         return { id: person.id, name: person.name.trim() };
       });
       const rules = {};
-      for (const key of ["green", "yellow", "brown", "red"]) {
-        if (!Number.isInteger(candidate.rules[key]) || candidate.rules[key] < 0) throw new Error("Color rules must be non-negative whole numbers.");
-        rules[key] = candidate.rules[key];
+      for (const key of ["green", "olive", "yellow", "brown", "red"]) {
+        const threshold = candidate.rules[key] ?? "";
+        if (threshold === "") { rules[key] = ""; continue; }
+        if (!Number.isInteger(threshold) || threshold < 0) throw new Error("Color rules must be non-negative whole numbers.");
+        rules[key] = threshold;
       }
-      if (!(rules.green >= rules.yellow && rules.yellow >= rules.brown && rules.brown >= rules.red)) throw new Error("Rules must be ordered: Green, Yellow, Brown, then Red below.");
+      const thresholds = [rules.green, rules.olive, rules.yellow, rules.brown, rules.red].filter(value => value !== "");
+      if (thresholds.some((value, index) => index > 0 && thresholds[index - 1] < value)) throw new Error("Order any thresholds you enter from highest to lowest: Green, Olive, Yellow, Brown, Red.");
       const weeks = candidate.weeks.map(week => {
         if (!week || typeof week.id !== "string" || typeof week.label !== "string" || !week.label.trim() || !week.cells || typeof week.cells !== "object") throw new Error("The backup contains an invalid week.");
         const cells = {};
@@ -295,7 +301,14 @@
     function loadData() {
       try {
         const raw = localStorage.getItem(CONFIG.storageKey);
-        return raw ? validateData(JSON.parse(raw)) : createInitialData();
+        if (!raw) return createInitialData();
+        const loaded = validateData(JSON.parse(raw));
+        const oldDefaults = loaded.rules.green === 6520 && loaded.rules.olive === "" && loaded.rules.yellow === 5000 && loaded.rules.brown === 4000 && loaded.rules.red === 4000;
+        if (oldDefaults) {
+          loaded.rules = { ...CONFIG.rules };
+          localStorage.setItem(CONFIG.storageKey, JSON.stringify(loaded));
+        }
+        return loaded;
       } catch (error) {
         console.warn("Could not load saved tracker data:", error);
         return createInitialData();
@@ -330,6 +343,7 @@
       byId("subtitle").textContent = `Weekly figures · target ${data.target}`;
       byId("targetInput").value = data.target;
       byId("greenRule").value = data.rules.green;
+      byId("oliveRule").value = data.rules.olive;
       byId("yellowRule").value = data.rules.yellow;
       byId("brownRule").value = data.rules.brown;
       byId("redRule").value = data.rules.red;
@@ -392,20 +406,22 @@
     }
 
     function classify(value, rules) {
-      if (value >= rules.green) return "green";
-      if (value >= rules.yellow) return "yellow";
-      if (value >= rules.brown) return "brown";
-      if (value < rules.red) return "red";
+      for (const color of ["green", "olive", "yellow", "brown"]) {
+        if (rules[color] !== "" && value >= rules[color]) return color;
+      }
+      if (rules.red !== "" && value < rules.red) return "red";
       return "";
     }
 
     function getRulesFromForm() {
       const rules = {
-        green: numberField(byId("greenRule").value), yellow: numberField(byId("yellowRule").value),
+        green: numberField(byId("greenRule").value), olive: numberField(byId("oliveRule").value),
+        yellow: numberField(byId("yellowRule").value),
         brown: numberField(byId("brownRule").value), red: numberField(byId("redRule").value)
       };
-      if (Object.values(rules).some(value => value === "" || !Number.isInteger(value) || value < 0)) throw new Error("Enter a non-negative whole number for every color threshold.");
-      if (!(rules.green >= rules.yellow && rules.yellow >= rules.brown && rules.brown >= rules.red)) throw new Error("Order thresholds from highest to lowest: Green, Yellow, Brown, Red below.");
+      if (Object.values(rules).some(value => value !== "" && (!Number.isInteger(value) || value < 0))) throw new Error("Enter non-negative whole numbers for thresholds, or leave them blank.");
+      const thresholds = [rules.green, rules.olive, rules.yellow, rules.brown, rules.red].filter(value => value !== "");
+      if (thresholds.some((value, index) => index > 0 && thresholds[index - 1] < value)) throw new Error("Order any thresholds you enter from highest to lowest: Green, Olive, Yellow, Brown, Red.");
       return rules;
     }
 
