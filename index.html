@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#202940">
+  <title>Sevens Progress Tracker</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #F6F7FA;
+      --navy: #202940;
+      --muted: #AEBBD0;
+      --header: #E2E7F2;
+      --ink: #202940;
+      --line: #D8DEEA;
+      --white: #FFFFFF;
+      --green: #06A44F;
+      --red: #FA0001;
+      --yellow: #F4B204;
+      --brown: #D57123;
+      --olive: #588132;
+      --shadow: 0 2px 7px rgba(32, 41, 64, .09);
+      font-family: Calibri, Carlito, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(100% - 32px, 1240px); margin: 28px auto 48px; }
+    .tracker-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 20px 24px; color: white; background: var(--navy); border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(32, 41, 64, .14);
+    }
+    .banner-title { margin: 0; font-size: 27px; line-height: 1.1; font-weight: 700; }
+    .banner-subtitle { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    .button {
+      min-height: 38px; padding: 8px 12px; border: 1px solid transparent; border-radius: 7px;
+      background: #34415D; color: #fff; font-weight: 600;
+    }
+    .button:hover { background: #435270; }
+    .button.light { color: var(--navy); background: white; border-color: var(--line); }
+    .button.light:hover { background: #F2F4F8; }
+    .button.danger { color: #A31720; background: #FFF1F1; border-color: #F3C8CA; }
+    .button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #7199DA; outline-offset: 2px; }
+    .export-frame { padding-top: 16px; }
+    .table-scroll { overflow: auto; border-radius: 9px; scrollbar-color: #B7C2D4 transparent; }
+    table { border-collapse: separate; border-spacing: 8px 9px; width: 100%; min-width: max-content; }
+    th, td { padding: 0; text-align: center; }
+    thead th { height: 42px; }
+    .name-column { position: sticky; left: 0; z-index: 3; width: 138px; min-width: 138px; }
+    thead .name-column { background: var(--page); }
+    .date-pill {
+      display: flex; min-height: 42px; align-items: center; justify-content: center; padding: 8px 13px;
+      border-radius: 9px; background: var(--header); color: var(--navy); font-weight: 700; white-space: nowrap;
+    }
+    .name-card {
+      display: flex; min-height: 59px; align-items: center; padding: 10px 13px; border-radius: 9px;
+      background: white; font-weight: 700; text-align: left; box-shadow: var(--shadow); white-space: nowrap;
+    }
+    .cell-button {
+      display: flex; width: 100%; min-width: 126px; min-height: 59px; align-items: center; justify-content: center;
+      padding: 8px; border: 1px solid rgba(32, 41, 64, .05); border-radius: 14px;
+      background: white; color: #202940; box-shadow: var(--shadow); font-size: 15px; font-variant-numeric: tabular-nums;
+    }
+    .cell-button:hover { transform: translateY(-1px); box-shadow: 0 4px 11px rgba(32, 41, 64, .15); }
+    .cell-button.empty { color: #9AA5B7; }
+    .cell-button:focus-visible { outline-offset: 1px; }
+    .week-heading { position: relative; }
+    .week-heading .date-pill { padding-right: 34px; }
+    .delete-week {
+      position: absolute; top: 3px; right: 3px; display: grid; place-items: center; width: 26px; height: 26px;
+      padding: 0; border: 0; border-radius: 6px; background: transparent; color: #67738A; font-size: 17px;
+    }
+    .delete-week:hover { background: #CFD6E5; color: #8D1D24; }
+    .section { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .section-heading { margin: 0 0 12px; font-size: 18px; }
+    .settings-row { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; }
+    .field { display: grid; gap: 5px; min-width: 140px; }
+    .field label { color: #536079; font-size: 13px; font-weight: 700; }
+    .field input, .field select {
+      width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid #C8D0DF; border-radius: 6px;
+      background: white; color: var(--ink);
+    }
+    .field input[type="number"] { font-variant-numeric: tabular-nums; }
+    .rule-green label { color: var(--green); }
+    .rule-yellow label { color: #9A6A00; }
+    .rule-brown label { color: var(--brown); }
+    .rule-red label { color: var(--red); }
+    .rule-green input { border-bottom: 3px solid var(--green); }
+    .rule-yellow input { border-bottom: 3px solid var(--yellow); }
+    .rule-brown input { border-bottom: 3px solid var(--brown); }
+    .rule-red input { border-bottom: 3px solid var(--red); }
+    .week-form { display: grid; grid-template-columns: repeat(4, minmax(135px, 1fr)); gap: 12px; }
+    .week-form .field:first-child { grid-column: 1 / -1; max-width: 260px; }
+    .week-form-actions { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
+    .people-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .person-row { display: flex; align-items: center; gap: 8px; }
+    .person-row .name-card { flex: 1; }
+    .remove-person {
+      width: 31px; height: 31px; flex: 0 0 31px; border: 1px solid #E5C8CA; border-radius: 6px;
+      background: #FFF5F5; color: #9B252C; font-size: 18px; line-height: 1;
+    }
+    .note { margin: 8px 0 0; color: #6A7589; font-size: 13px; }
+    .status { min-height: 20px; margin: 8px 0 0; color: #28633E; font-size: 13px; }
+    dialog { width: min(420px, calc(100% - 30px)); padding: 22px; border: 1px solid #D7DEEA; border-radius: 10px; color: var(--ink); box-shadow: 0 18px 60px rgba(17, 27, 46, .25); }
+    dialog::backdrop { background: rgba(21, 29, 45, .43); }
+    dialog h2 { margin: 0 0 16px; font-size: 20px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .swatch-label { display: flex; gap: 8px; align-items: center; }
+    .swatch { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: var(--swatch); }
+    .color-option { display: flex; align-items: center; gap: 7px; }
+    .import-input { display: none; }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 20px, 1240px); margin: 12px auto 32px; }
+      .tracker-banner { align-items: flex-start; flex-direction: column; padding: 17px; gap: 13px; }
+      .toolbar { justify-content: flex-start; }
+      .button { min-height: 36px; padding: 7px 9px; font-size: 13px; }
+      .banner-title { font-size: 24px; }
+      .name-column { width: 112px; min-width: 112px; }
+      .week-form { grid-template-columns: repeat(2, minmax(125px, 1fr)); }
+      .week-form .field:first-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 380px) {
+      .week-form { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .field { min-width: 0; }
+      .toolbar { gap: 6px; }
+    }
+    @media print {
+      body { background: white; }
+      .shell { width: 100%; margin: 0; }
+      .toolbar, .section, .delete-week, .remove-person { display: none !important; }
+      .table-scroll { overflow: visible; }
+      .name-column { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div id="exportFrame" class="export-frame">
+      <header class="tracker-banner">
+        <div>
+          <h1 class="banner-title">Sevens Progress Tracker</h1>
+          <p id="subtitle" class="banner-subtitle">Weekly figures · target 27660</p>
+        </div>
+        <nav class="toolbar" aria-label="Data actions">
+          <button id="imageButton" class="button" type="button">Download as image</button>
+          <button id="exportButton" class="button" type="button">Export data</button>
+          <button id="importButton" class="button" type="button">Import data</button>
+          <input id="importFile" class="import-input" type="file" accept="application/json,.json">
+        </nav>
+      </header>
+      <div class="table-scroll" aria-label="Weekly tracker table" tabindex="0">
+        <table id="trackerTable"></table>
+      </div>
+    </div>
+
+    <section class="section" aria-labelledby="targetHeading">
+      <h2 id="targetHeading" class="section-heading">Tracker settings</h2>
+      <div class="settings-row">
+        <div class="field" style="max-width:190px">
+          <label for="targetInput">Weekly target</label>
+          <input id="targetInput" type="number" min="0" step="1" inputmode="numeric">
+        </div>
+      </div>
+      <h3 class="section-heading" style="margin-top:18px">Color rules for new weeks</h3>
+      <div class="settings-row" id="rulesForm">
+        <div class="field rule-green"><label for="greenRule">Green from</label><input id="greenRule" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field rule-yellow"><label for="yellowRule">Yellow from</label><input id="yellowRule" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field rule-brown"><label for="brownRule">Brown from</label><input id="brownRule" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="field rule-red"><label for="redRule">Red below</label><input id="redRule" type="number" min="0" step="1" inputmode="numeric"></div>
+        <button id="saveRules" class="button light" type="button">Save rules</button>
+      </div>
+      <p class="note">Thresholds are applied only when you add a week. Existing cell colors stay as saved.</p>
+      <p id="settingsStatus" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="section" aria-labelledby="newWeekHeading">
+      <h2 id="newWeekHeading" class="section-heading">Add new week</h2>
+      <form id="weekForm" class="week-form" novalidate>
+        <div class="field"><label for="weekLabel">Date label</label><input id="weekLabel" type="text" maxlength="30" placeholder="e.g. 12-Oct" required></div>
+        <div id="weekInputs" class="week-form" style="display:contents"></div>
+        <div class="week-form-actions"><button class="button" type="submit">Add week</button><span id="weekStatus" class="status" role="status" aria-live="polite"></span></div>
+      </form>
+    </section>
+
+    <section class="section" aria-labelledby="peopleHeading">
+      <h2 id="peopleHeading" class="section-heading">People</h2>
+      <form id="personForm" class="people-form" novalidate>
+        <div class="field" style="max-width:250px"><label for="personName">Add a person</label><input id="personName" type="text" maxlength="50" placeholder="Name" required></div>
+        <button class="button light" type="submit">Add person</button>
+      </form>
+      <p class="note">Removing a person also removes their figures from every week.</p>
+    </section>
+  </main>
+
+  <dialog id="cellDialog" aria-labelledby="editHeading">
+    <form id="cellForm" novalidate>
+      <h2 id="editHeading">Edit figure</h2>
+      <div class="field"><label id="cellContext" for="cellValue">Figure</label><input id="cellValue" type="number" min="0" step="1" inputmode="numeric" placeholder="Leave blank for no figure"></div>
+      <div class="field" style="margin-top:13px"><label for="cellColor">Cell color</label>
+        <select id="cellColor">
+          <option value="">No color</option>
+          <option value="green">Green</option>
+          <option value="red">Red</option>
+          <option value="yellow">Yellow</option>
+          <option value="brown">Brown / orange</option>
+          <option value="olive">Olive green-brown</option>
+        </select>
+      </div>
+      <div class="dialog-actions"><button id="cancelCell" class="button light" type="button">Cancel</button><button class="button" type="submit">Save cell</button></div>
+    </form>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    // Edit these defaults to adjust the initial tracker and palette.
+    const CONFIG = {
+      storageKey: "sevens-tracker-v1",
+      target: 27660,
+      rules: { green: 6520, yellow: 5000, brown: 4000, red: 4000 },
+      colors: { green: "#06A44F", red: "#FA0001", yellow: "#F4B204", brown: "#D57123", olive: "#588132" },
+      people: ["Ritah", "Laura", "Ashley", "Prince", "Alex", "Hope", "Vincent", "Komu"],
+      dates: ["14-Sep", "21-Sep", "28-Sep", "5-Oct"],
+      figures: [
+        [1307, 2434, 4045, 5207], [1054, 1564, 3570, 5263], [2177, 3343, 5016, 6577],
+        [0, 61, 700, 1261], [0, 3785, 4019, 7307], [1009, 53, 1141, 3006],
+        [0, 19, 2158, 2488], [1308, 3110, 5000, 6455]
+      ],
+      seededColors: {
+        Ritah: { "14-Sep": "green", "21-Sep": "green", "28-Sep": "green", "5-Oct": "yellow" },
+        Laura: { "14-Sep": "green", "21-Sep": "green", "28-Sep": "olive", "5-Oct": "yellow" },
+        Ashley: { "14-Sep": "green", "21-Sep": "green", "28-Sep": "green", "5-Oct": "green" },
+        Prince: { "14-Sep": "red", "21-Sep": "red", "28-Sep": "red", "5-Oct": "red" },
+        Alex: { "14-Sep": "red", "21-Sep": "green", "28-Sep": "green", "5-Oct": "green" },
+        Hope: { "14-Sep": "green", "21-Sep": "red", "28-Sep": "brown", "5-Oct": "brown" },
+        Vincent: { "14-Sep": "red", "21-Sep": "red", "28-Sep": "yellow", "5-Oct": "red" },
+        Komu: { "14-Sep": "green", "21-Sep": "green", "28-Sep": "green", "5-Oct": "green" }
+      }
+    };
+    const ALLOWED_COLORS = new Set(["green", "red", "yellow", "brown", "olive"]);
+    const COLOR_NAMES = { green: "Green", red: "Red", yellow: "Yellow", brown: "Brown / orange", olive: "Olive green-brown" };
+    const makeId = () => "p-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    const numberField = (value) => value === "" || value === null ? "" : Number(value);
+
+    function createInitialData() {
+      const people = CONFIG.people.map(name => ({ id: makeId(), name }));
+      const weeks = CONFIG.dates.map((label, weekIndex) => {
+        const cells = {};
+        people.forEach((person, personIndex) => {
+          cells[person.id] = { value: CONFIG.figures[personIndex][weekIndex], color: CONFIG.seededColors[person.name][label] || "" };
+        });
+        return { id: makeId(), label, cells };
+      });
+      return { version: 1, target: CONFIG.target, rules: { ...CONFIG.rules }, people, weeks };
+    }
+
+    function validateData(candidate) {
+      if (!candidate || candidate.version !== 1 || !Array.isArray(candidate.people) || !Array.isArray(candidate.weeks) || !candidate.rules) throw new Error("This JSON is not a supported Sevens Tracker backup.");
+      if (!Number.isInteger(candidate.target) || candidate.target < 0) throw new Error("The target must be a non-negative whole number.");
+      const personIds = new Set();
+      const people = candidate.people.map(person => {
+        if (!person || typeof person.id !== "string" || !person.id || typeof person.name !== "string" || !person.name.trim() || personIds.has(person.id)) throw new Error("The backup contains an invalid or duplicate person.");
+        personIds.add(person.id);
+        return { id: person.id, name: person.name.trim() };
+      });
+      const rules = {};
+      for (const key of ["green", "yellow", "brown", "red"]) {
+        if (!Number.isInteger(candidate.rules[key]) || candidate.rules[key] < 0) throw new Error("Color rules must be non-negative whole numbers.");
+        rules[key] = candidate.rules[key];
+      }
+      if (!(rules.green >= rules.yellow && rules.yellow >= rules.brown && rules.brown >= rules.red)) throw new Error("Rules must be ordered: Green, Yellow, Brown, then Red below.");
+      const weeks = candidate.weeks.map(week => {
+        if (!week || typeof week.id !== "string" || typeof week.label !== "string" || !week.label.trim() || !week.cells || typeof week.cells !== "object") throw new Error("The backup contains an invalid week.");
+        const cells = {};
+        people.forEach(person => {
+          const cell = week.cells[person.id];
+          if (!cell) { cells[person.id] = { value: "", color: "" }; return; }
+          const value = cell.value === "" ? "" : Number(cell.value);
+          const color = cell.color || "";
+          if (value !== "" && (!Number.isInteger(value) || value < 0)) throw new Error("Figures must be non-negative whole numbers.");
+          if (color && !ALLOWED_COLORS.has(color)) throw new Error("The backup contains an unknown cell color.");
+          cells[person.id] = { value, color };
+        });
+        return { id: week.id, label: week.label.trim(), cells };
+      });
+      return { version: 1, target: candidate.target, rules, people, weeks };
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(CONFIG.storageKey);
+        return raw ? validateData(JSON.parse(raw)) : createInitialData();
+      } catch (error) {
+        console.warn("Could not load saved tracker data:", error);
+        return createInitialData();
+      }
+    }
+
+    let data = loadData();
+    let editing = null;
+    const byId = id => document.getElementById(id);
+
+    function saveData() {
+      try {
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+      } catch (error) {
+        announce("Could not save to this browser's local storage.", true);
+      }
+    }
+
+    function announce(message, isError = false, target = "settingsStatus") {
+      const node = byId(target);
+      node.textContent = message;
+      node.style.color = isError ? "#A31720" : "#28633E";
+    }
+
+    function setCellColor(button, color) {
+      button.style.backgroundColor = color ? CONFIG.colors[color] : "#FFFFFF";
+      button.style.color = color === "yellow" ? "#202940" : color ? "#FFFFFF" : "#202940";
+      button.style.borderColor = color ? "rgba(32, 41, 64, .13)" : "rgba(32, 41, 64, .05)";
+    }
+
+    function render() {
+      byId("subtitle").textContent = `Weekly figures · target ${data.target}`;
+      byId("targetInput").value = data.target;
+      byId("greenRule").value = data.rules.green;
+      byId("yellowRule").value = data.rules.yellow;
+      byId("brownRule").value = data.rules.brown;
+      byId("redRule").value = data.rules.red;
+      const table = byId("trackerTable");
+      table.replaceChildren();
+      const head = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      const blankHeader = document.createElement("th");
+      blankHeader.className = "name-column";
+      blankHeader.scope = "col";
+      headerRow.append(blankHeader);
+      data.weeks.forEach(week => {
+        const th = document.createElement("th"); th.scope = "col"; th.className = "week-heading";
+        const pill = document.createElement("div"); pill.className = "date-pill"; pill.textContent = week.label;
+        const remove = document.createElement("button"); remove.className = "delete-week"; remove.type = "button"; remove.textContent = "×";
+        remove.setAttribute("aria-label", `Delete week ${week.label}`);
+        remove.title = `Delete ${week.label}`;
+        remove.addEventListener("click", () => deleteWeek(week));
+        th.append(pill, remove); headerRow.append(th);
+      });
+      head.append(headerRow); table.append(head);
+      const body = document.createElement("tbody");
+      data.people.forEach(person => {
+        const row = document.createElement("tr");
+        const nameCell = document.createElement("th"); nameCell.scope = "row"; nameCell.className = "name-column";
+        const personWrap = document.createElement("div"); personWrap.className = "person-row";
+        const name = document.createElement("span"); name.className = "name-card"; name.textContent = person.name;
+        const remove = document.createElement("button"); remove.className = "remove-person"; remove.type = "button"; remove.textContent = "×";
+        remove.setAttribute("aria-label", `Remove ${person.name}`); remove.title = `Remove ${person.name}`;
+        remove.addEventListener("click", () => deletePerson(person));
+        personWrap.append(name, remove); nameCell.append(personWrap); row.append(nameCell);
+        data.weeks.forEach(week => {
+          const td = document.createElement("td");
+          const cell = week.cells[person.id] || { value: "", color: "" };
+          const button = document.createElement("button"); button.type = "button"; button.className = "cell-button";
+          const isBlank = cell.value === "" || cell.value === null;
+          button.textContent = isBlank ? "" : `${cell.value}/${data.target}`;
+          if (isBlank) button.classList.add("empty");
+          button.setAttribute("aria-label", `${person.name}, ${week.label}: ${isBlank ? "empty" : `${cell.value} of ${data.target}`}${cell.color ? `, ${COLOR_NAMES[cell.color]}` : ""}. Edit`);
+          button.title = "Edit figure or color";
+          setCellColor(button, cell.color);
+          button.addEventListener("click", () => openCellEditor(person, week));
+          td.append(button); row.append(td);
+        });
+        body.append(row);
+      });
+      table.append(body);
+      renderWeekInputs();
+    }
+
+    function renderWeekInputs() {
+      const container = byId("weekInputs"); container.replaceChildren();
+      data.people.forEach(person => {
+        const wrapper = document.createElement("div"); wrapper.className = "field";
+        const label = document.createElement("label"); label.htmlFor = `week-${person.id}`; label.textContent = person.name;
+        const input = document.createElement("input"); input.id = `week-${person.id}`; input.name = person.id;
+        input.type = "number"; input.min = "0"; input.step = "1"; input.inputMode = "numeric"; input.placeholder = "Blank";
+        wrapper.append(label, input); container.append(wrapper);
+      });
+    }
+
+    function classify(value, rules) {
+      if (value >= rules.green) return "green";
+      if (value >= rules.yellow) return "yellow";
+      if (value >= rules.brown) return "brown";
+      if (value < rules.red) return "red";
+      return "";
+    }
+
+    function getRulesFromForm() {
+      const rules = {
+        green: numberField(byId("greenRule").value), yellow: numberField(byId("yellowRule").value),
+        brown: numberField(byId("brownRule").value), red: numberField(byId("redRule").value)
+      };
+      if (Object.values(rules).some(value => value === "" || !Number.isInteger(value) || value < 0)) throw new Error("Enter a non-negative whole number for every color threshold.");
+      if (!(rules.green >= rules.yellow && rules.yellow >= rules.brown && rules.brown >= rules.red)) throw new Error("Order thresholds from highest to lowest: Green, Yellow, Brown, Red below.");
+      return rules;
+    }
+
+    function openCellEditor(person, week) {
+      const cell = week.cells[person.id] || { value: "", color: "" };
+      editing = { personId: person.id, weekId: week.id };
+      byId("cellContext").textContent = `${person.name} · ${week.label}`;
+      byId("cellValue").value = cell.value === "" ? "" : cell.value;
+      byId("cellColor").value = cell.color;
+      byId("cellDialog").showModal();
+      byId("cellValue").focus();
+    }
+
+    function deleteWeek(week) {
+      if (!confirm(`Delete the week ${week.label} and all its figures?`)) return;
+      data.weeks = data.weeks.filter(item => item.id !== week.id); saveData(); render();
+    }
+
+    function deletePerson(person) {
+      if (!confirm(`Remove ${person.name} and their figures from every week?`)) return;
+      data.people = data.people.filter(item => item.id !== person.id);
+      data.weeks.forEach(week => { delete week.cells[person.id]; });
+      saveData(); render();
+    }
+
+    byId("targetInput").addEventListener("change", event => {
+      const value = Number(event.target.value);
+      if (!Number.isInteger(value) || value < 0) { event.target.value = data.target; announce("Target must be a non-negative whole number.", true); return; }
+      data.target = value; saveData(); render(); announce("Target saved.");
+    });
+
+    byId("saveRules").addEventListener("click", () => {
+      try { data.rules = getRulesFromForm(); saveData(); announce("Rules saved. They will apply to the next week you add."); }
+      catch (error) { announce(error.message, true); }
+    });
+
+    byId("weekForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const label = byId("weekLabel").value.trim();
+      if (!label) { announce("Enter a date label for this week.", true, "weekStatus"); return; }
+      const entries = {};
+      for (const person of data.people) {
+        const raw = byId(`week-${person.id}`).value;
+        if (raw !== "" && (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))) { announce(`Enter a non-negative whole number for ${person.name}, or leave it blank.`, true, "weekStatus"); return; }
+        const value = raw === "" ? "" : Number(raw);
+        entries[person.id] = { value, color: value === "" ? "" : classify(value, data.rules) };
+      }
+      data.weeks.push({ id: makeId(), label, cells: entries }); saveData(); render();
+      byId("weekLabel").value = "";
+      announce(`Week ${label} added.`, false, "weekStatus");
+    });
+
+    byId("personForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = byId("personName"); const name = input.value.trim();
+      if (!name) { announce("Enter a name first.", true); return; }
+      if (data.people.some(person => person.name.toLocaleLowerCase() === name.toLocaleLowerCase())) { announce("That person is already in the tracker.", true); return; }
+      data.people.push({ id: makeId(), name }); saveData(); render(); input.value = ""; announce(`${name} added.`);
+    });
+
+    byId("cellForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const raw = byId("cellValue").value;
+      if (raw !== "" && (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))) { byId("cellValue").setCustomValidity("Enter a non-negative whole number, or leave it blank."); byId("cellValue").reportValidity(); return; }
+      byId("cellValue").setCustomValidity("");
+      const week = data.weeks.find(item => item.id === editing.weekId);
+      if (week) week.cells[editing.personId] = { value: raw === "" ? "" : Number(raw), color: byId("cellColor").value };
+      saveData(); byId("cellDialog").close(); render();
+    });
+
+    byId("cellValue").addEventListener("input", event => event.target.setCustomValidity(""));
+    byId("cancelCell").addEventListener("click", () => byId("cellDialog").close());
+    byId("exportButton").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "sevens_tracker.json"; link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    byId("importButton").addEventListener("click", () => byId("importFile").click());
+    byId("importFile").addEventListener("change", async event => {
+      const file = event.target.files[0]; if (!file) return;
+      try {
+        const imported = validateData(JSON.parse(await file.text()));
+        if (!confirm("Replace the current tracker with the imported data?")) return;
+        data = imported; saveData(); render(); announce("Tracker data imported.");
+      } catch (error) { announce(`Import failed: ${error.message}`, true); }
+      finally { event.target.value = ""; }
+    });
+
+    byId("imageButton").addEventListener("click", async () => {
+      if (typeof html2canvas !== "function") { announce("Image export needs an internet connection to load html2canvas.", true); return; }
+      try {
+        const image = await html2canvas(byId("exportFrame"), { backgroundColor: "#F6F7FA", scale: 2, useCORS: true, onclone: cloned => {
+          const exportFrame = cloned.querySelector("#exportFrame");
+          const tableScroll = cloned.querySelector(".table-scroll");
+          const tableWidth = cloned.querySelector("#trackerTable").scrollWidth;
+          exportFrame.style.width = `${tableWidth}px`;
+          cloned.querySelector(".tracker-banner").style.width = `${tableWidth}px`;
+          tableScroll.style.overflow = "visible";
+          tableScroll.style.width = `${tableWidth}px`;
+          cloned.querySelector(".toolbar").remove();
+          cloned.querySelectorAll(".delete-week, .remove-person").forEach(button => button.remove());
+        } });
+        const link = document.createElement("a"); link.download = "sevens_tracker.png"; link.href = image.toDataURL("image/png"); link.click();
+      } catch (error) { announce("Could not create the image. Try exporting the data as JSON instead.", true); }
+    });
+
+    render();
+    if (!localStorage.getItem(CONFIG.storageKey)) saveData();
+  </script>
+</body>
+</html>
